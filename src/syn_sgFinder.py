@@ -224,13 +224,15 @@ class sgFinder_transcript():
 
     def write_res_summ(self, gene_class,sg_class, lsyn, BE_type):
         if BE_type == 'ABE':
-            df_summ = pd.DataFrame({'gene':gene_class.gene,'transcript':self.transcript_ID,\
+            dictionary = {'gene':gene_class.gene,'transcript':self.transcript_ID,\
             'sgRNA':str(sg_class.sg_seq),'ABE_locs':str(sg_class.list_possib_pos_abe),\
-            'syn_or_not':str(lsyn)}, index = [0])
+            'syn_or_not':lsyn}
+            df_summ=pd.DataFrame.from_dict(dictionary,orient='index').transpose()
         elif BE_type =='CBE':
-            df_summ = pd.DataFrame({'gene':gene_class.gene,'transcript':self.transcript_ID,\
+            dictionary = {'gene':gene_class.gene,'transcript':self.transcript_ID,\
             'sgRNA':str(sg_class.sg_seq),'CBE_locs':str(sg_class.list_possib_pos_cbe),\
-            'syn_or_not':str(lsyn)}, index = [0])
+            'syn_or_not':lsyn}
+            df_summ=pd.DataFrame.from_dict(dictionary,orient='index').transpose()
         return(df_summ)
 
     def all_pos_consq(self, sgFinder_gene, sgFinder_sg, record):
