@@ -4,6 +4,8 @@ data/*
 **/fromIvan/**
 **/MANE/**
 **/output/**
+**/.DS_store
+**/*.pyc
 
 !/data/22Q2_gene_effect/.gitkeep
 !/data/ExAC/.gitkeep
