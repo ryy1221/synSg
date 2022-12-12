@@ -4,3 +4,7 @@ data/*
 **/fromIvan/**
 **/MANE/**
 **/output/**
+
+!/data/22Q2_gene_effect/.gitkeep
+!/data/ExAC/.gitkeep
+!/MANE/.gitkeep
