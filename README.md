@@ -27,7 +27,7 @@ conda activate synSg
 ---
 
 ## Folder Structure
-
+```
 synSg/
 │
 ├── notebooks/               # Jupyter notebooks
@@ -50,3 +50,4 @@ synSg/
 ├── README.md                # Project overview and instructions
 ├── requirements.txt         # Python dependencies (if using pip)
 └── environment.yml          # Conda environment configuration
+```
