@@ -1,0 +1,21 @@
+#!/bin/bash
+#SBATCH --mem-per-cpu=8gb
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --time=1:00:00
+#SBATCH -o /storage/group/epo2/default/yur97/github/synSg/job_status/crispresso.%j.out # STDOUT
+#SBATCH -e /storage/group/epo2/default/yur97/github/synSg/job_status/crispresso.%j.err # STDERR
+
+cd $SLURM_SUBMIT_DIR
+source /swst/apps/anaconda3/2021.05_gcc-8.5.0/etc/profile.d/conda.sh
+conda activate crispresso
+
+echo "...started at $(date)"
+
+CRISPResso --fastq_r1 ${R1} --fastq_r2 ${R2} --amplicon_seq ${AMP} --amplicon_name ${NAME} -n ${NAME} --keep_intermediate -o ${OUTPUT} --guide_seq ${SG} --quantification_window_size 10 --quantification_window_center -10 
+
+#CRISPResso --fastq_r1 ${R1} --fastq_r2 ${R2} --amplicon_seq ${AMP} --amplicon_name ${NAME} -n ${NAME} --guide_seq ${SG} --keep_intermediate -o ${OUTPUT} 
+
+echo "...ended at $(date)" 
+
+####### ^---- JOB COMMANDS ABOVE ----^

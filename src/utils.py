@@ -15,6 +15,27 @@ from tqdm import tqdm
 ivan_path = '../data/fromIvan'
 primer_path = '../data/output/primers/'
 
+def RevComplment(s): #Case-senstive reverse complmnentarty conversion
+    comp = []
+    for i in s[::-1]:
+        if i == 'a':
+            comp.append('t')
+        if i == 'A':
+            comp.append('T')
+        if i == 't':
+            comp.append('a')
+        if i == 'T':
+            comp.append('A')
+        if i == 'c':
+            comp.append('g')
+        if i == 'C':
+            comp.append('G')
+        if i == 'g':
+            comp.append('c')
+        if i == 'G':
+            comp.append('C')
+    return ''.join(comp)
+
 
 
 def BE_mutate(nuc): # Input is the nucleotide
@@ -32,48 +53,153 @@ def raise_error(condition, msg, error_type=ValueError):
     if not condition:
         raise error_type(msg)
 
-def gsite_sted(dict_cdst, dict_cded, gene_strand):
+def exon_boundary(dict_exons,cdst,cded,gene_strand):
+    exon_neighbor_pos = []
     if gene_strand == '+':
-        start_codon_sites = list(set([i for i in dict_cdst] + [i+1 for i in dict_cdst] + [i+2 for i in dict_cdst]))
-        end_codon_sites = list(set([i for i in dict_cded] + [i-1 for i in dict_cded] + [i-2 for i in dict_cded]))
+        for i in dict_exons:
+            exon_neighbor_pos.extend([i[0],i[0]+1,i[0]+2,i[1],i[1]-1,i[1]-2])
+            exon_neighbor_pos.extend([cdst,cdst+1,cdst+2])
+            exon_neighbor_pos.extend([cded,cded-1,cded-2])
     else:
-        start_codon_sites = list(set([i for i in dict_cdst] + [i-1 for i in dict_cdst] + [i-2 for i in dict_cdst]))
-        end_codon_sites = list(set([i for i in dict_cded] + [i+1 for i in dict_cded] + [i+2 for i in dict_cded]))
-    return(start_codon_sites+end_codon_sites)
+        for i in dict_exons:
+            exon_neighbor_pos.extend([i[0],i[0]-1,i[0]-2,i[1],i[1]+1,i[1]+2])
+            exon_neighbor_pos.extend([cdst,cdst-1,cdst-2])
+            exon_neighbor_pos.extend([cded,cded+1,cded+2])
+    return(exon_neighbor_pos)
+
+def filter_sg_boundary(boundary_pos, sg_start_gloc, sg_strand):
+    if sg_strand == '-':
+        map_boundary_site = sg_start_gloc + 22
+    elif sg_strand == '+':
+        map_boundary_site = sg_start_gloc
+#     print(sg_start_gloc, map_boundary_site, boundary_pos)
+
+    if map_boundary_site in boundary_pos:
+#         print('sgRNA is at boundary')
+#         print(sg_start_gloc, map_boundary_site, boundary_pos)
+        return(True)
+    else:
+        return(False)
+    
+def read_summ_files(name):
+    name_abe = 'ABE_synsg.csv';name_cbe = 'CBE_synsg.csv'
+    name_CTabe = 'ABE_CT.csv';name_CTcbe = 'CBE_CT.csv'
+    name_abe_detail = 'df_abe_detail.csv';name_cbe_detail = 'df_cbe_detail.csv'
+    out_path = '../data/output/sg_Finder'
+
+    f_abe = pd.read_csv(join(out_path,name,name_abe), index_col = 0)
+    f_cbe = pd.read_csv(join(out_path,name,name_cbe), index_col = 0)
+    f_CTabe = pd.read_csv(join(out_path,name,name_CTabe), index_col = 0)
+    f_CTcbe = pd.read_csv(join(out_path,name,name_CTcbe), index_col =0)
+    return(f_abe,f_cbe,f_CTabe,f_CTcbe)
+
+def is_stop(x):
+    if all(i.split('>')[-1]=='*' for i in x) and any(i.split('>')[-1]=='*' for i in x):
+        return(True)
+    else:return(False)
+
+def is_missense(x):
+    if all(i.split('>')[0]!=i.split('>')[1] for i in x) and any(i.split('>')[0]!=i.split('>')[1] for i in x):
+        if not any('*' in i for i in x):
+            return(True)
+        else:return(False)
+    else:return(False)
+
+def gene_name(x):
+    if len(set(x)) == 1:
+        return(list(x)[0])
+    else:raise ValueError
+    
+
+def get_cons(df):
+    df_group = df.groupby('sgRNA').agg({'gene':lambda x:gene_name(x),'Codon_Change':list,'AA_change':list,'AA_pos':list,'Synonymous':list})
+    syn_sg = df_group[df_group['Synonymous'].apply(lambda x: all(x)&any(x))]
+    stop_sg = df_group[df_group['AA_change'].apply(lambda x: is_stop(x))]
+    mis_sg = df_group[df_group['AA_change'].apply(lambda x: is_missense(x))]
+    return(syn_sg,stop_sg,mis_sg)
+
+
+def sg_consequence(name,list_gene,tag,name_detail):
+    list_df_stop = [];list_df_mis = [];list_df_syn = []
+    out_path = '../data/output/sg_Finder'
+    for gene in list_gene:
+        df = pd.read_csv(join(out_path,gene, name, name_detail), index_col = 0)
+        if not df.empty:
+            syn_df,stop_df,mis_df = get_cons(df)
+            if not stop_df.empty:list_df_stop.append(stop_df)
+            if not mis_df.empty: list_df_mis.append(mis_df)
+            if not syn_df.empty:list_df_syn.append(syn_df)
+    if len(list_df_stop) > 0:
+        df_stop = pd.concat(list_df_stop,axis = 0)
+    else: df_stop = pd.DataFrame()
+    if len(list_df_mis)>0:
+        df_mis = pd.concat(list_df_mis,axis = 0)
+    else:df_mis = pd.DataFrame()
+    if len(list_df_syn)>0:
+        df_syn = pd.concat(list_df_syn,axis = 0)
+    else:df_syn = pd.DataFrame()
+    
+    return(df_stop, df_mis,df_syn)
+            
+
+
+def make_analyze_df(list_df):
+    df_alys = pd.concat(list_df, axis = 1).fillna(0)
+    df_alys['sum_11'] = df_alys['non_CT11']+df_alys['CT11']
+    df_alys['sum_13'] = df_alys['non_CT13']+df_alys['CT13']
+    df_alys['sum_15'] = df_alys['non_CT15']+df_alys['CT15']
+    return(df_alys)
+
+
+def get_control_sg(dfabeCT,dfcbeCT,tag):
+    tot_abe_CT = dfabeCT.groupby('gene')['sgRNA'].apply(lambda x: len(set(x)))
+    tot_abe_CT.name='CT'+tag
+    tot_cbe_CT = dfcbeCT.groupby('gene')['sgRNA'].apply(lambda x: len(set(x)))
+    tot_cbe_CT.name='CT'+tag
+    return(tot_abe_CT,tot_cbe_CT)
+    
+
+def get_genome_seq(sequence,list_index, sg_gloc,window_len, gene_strand, sgRna_strand):
+    sequence_idx = list_index.index(sg_gloc)
+    shift = int((window_len - 11)/2)
+    center_pos = int((window_len-1)/2)
+
+    if gene_strand == '+':
+        if sgRna_strand == '+':
+            seq = sequence[sequence_idx-shift:sequence_idx+window_len-shift]
+        else:
+            seq = sequence[sequence_idx+12-shift:sequence_idx+12+window_len-shift].reverse_complement()
+    else:
+        if sgRna_strand == '+':
+            seq = sequence[sequence_idx-window_len+1+shift:sequence_idx+1+shift].reverse_complement()
+        else:seq = sequence[sequence_idx-17-center_pos:sequence_idx-17+center_pos+1]
+    return(seq)
 
 # we only extend those sgRNAs that has edit site at the start position(0 or 1 distance)
-def besite_gloc(sg_seq, sg_strand, sg_start_gloc, gene_strand, dict_cdst, dict_cded):
+def besite_gloc(sg_seq, sg_strand, sg_start_gloc, gene_strand, shift):
     pos_cbe = []
     pos_abe = []
     extend_seq = False
-    sted_gsites = gsite_sted(dict_cdst,dict_cded,gene_strand)
+#     sted_gsites = gsite_sted(dict_cdst,dict_cded,gene_strand)
 
     for idx, letter in enumerate(sg_seq):
         if letter =='C':
             if sg_strand == '-':
-                possib_edit_gsite = sg_start_gloc + 22 - idx
+                possib_edit_gsite = sg_start_gloc + 22 - idx + shift
             elif sg_strand == '+':
-                possib_edit_gsite = sg_start_gloc + idx
+                possib_edit_gsite = sg_start_gloc + idx - shift
             pos_cbe.append(possib_edit_gsite)
-            if idx in [0,1]:
+            if idx in [0,1,len(sg_seq)-1,len(sg_seq)]:
                 extend_seq = True
 
         if letter =='A':
             if sg_strand == '-':
-                possib_edit_gsite = sg_start_gloc + 22 - idx
+                possib_edit_gsite = sg_start_gloc + 22 - idx + shift
             elif sg_strand == '+':
-                possib_edit_gsite = sg_start_gloc + idx
+                possib_edit_gsite = sg_start_gloc + idx - shift
             pos_abe.append(possib_edit_gsite)
-            if idx in [0,1]:
+            if idx in [0,1,len(sg_seq)-1,len(sg_seq)]:
                 extend_seq = True
-
-    if any([i for i in pos_cbe if i in sted_gsites]):
-        pos_cbe = []
-        print(f'{possib_edit_gsite} is in start/stop codon ...skipping{sg_seq}')
-    if any([i for i in pos_abe if i in sted_gsites]):
-        pos_abe = []
-        print(f'{possib_edit_gsite} is in start/stop codon ...skipping{sg_seq}')
-
     return(pos_cbe, pos_abe, extend_seq)
 
 def find_junction_nuc(record, intron_index, extend_sgseq, sg_strand):
@@ -152,27 +278,6 @@ def find_be_sgpos(gene_strand,sg_strand,be_pos,aa_pos,sg_gloc,extend_sg = False)
 
     return([aa_st_gpos,aa_ed_gpos],[aa_st_sgpos,aa_ed_sgpos])
 
-def make_CT_df(BE_type,gene_class,sg_class):
-    df_control_gene = pd.DataFrame({'gene':gene_class.gene,\
-                        'chrom':gene_class.chrom,\
-                         'gene_strand':str(gene_class.gene_strand),\
-                             'sg_strand':sg_class.sg_strand,\
-                        'sgRNA':str(sg_class.sg_seq),\
-                       'sgRNA_start':str(sg_class.gloc),\
-                        'BE_type':BE_type}, index = [0])
-    return(df_control_gene)
-
-def write_CT_df(gene_class,sg_class):
-    df_control_ABE = pd.DataFrame()
-    df_control_CBE = pd.DataFrame()
-    if all([i!='A' for i in sg_class.be_window_sgseq]):
-        df_control_gene = make_CT_df('ABE', gene_class,sg_class)
-        df_control_ABE = df_control_ABE.append(df_control_gene,ignore_index = True)
-    elif all([i!='C' for i in sg_class.be_window_sgseq]):
-        df_control_gene = make_CT_df('CBE',gene_class,sg_class)
-        df_control_CBE = df_control_CBE.append(df_control_gene,ignore_index = True)
-    return(df_control_ABE,df_control_CBE)
-
 
 RE = Seq('CGTCTC')
 RE_l = Seq('CGTCTCACACC')
@@ -237,7 +342,7 @@ def attach_group_primer(l,F,R):
     for i in l:
         oligo1 = attach_RE(i[0])
         oligo2 = attach_RE(i[1])
-        new_l.append(F+oligo1+oligo2+R)
+        new_l.append(F+oligo1+oligo2+RevComplment(R))
     return(new_l)
 
 def get_noprimer_list(BE_list):
@@ -316,20 +421,18 @@ def org_sgdf(p_df):
     input_df = input_df[['sgRNA','ID','gene']]
     return input_df
 
-def sel_empty_window(df):
+def sel_CT(df, number):
     sel_df = pd.DataFrame()
     for genes in list(df.gene.unique()):
         CTsg = df[df.gene == genes].head(1)
         sel_df = sel_df.append(CTsg, ignore_index = True)
-    if len(sel_df) < 120:
-        remain_df = df.loc[random.sample(list(df.index), 250-len(sel_df))]
-    sel_df = sel_df.append(remain_df,ignore_index = True)
-    sel_df = sel_df[~sel_df.duplicated()]
+    if len(sel_df) < number:
+        remain_df = df.loc[random.sample(list(df.index),  number-len(sel_df))]
+    sel_df = pd.concat([sel_df,remain_df], axis = 0)
+    sel_df = sel_df[~sel_df['sgRNA'].duplicated()]
     return(sel_df)
 
-def calc_best_primerTM(GoodPrimer_DF, noprimer_list):
-    F1 = GoodPrimer_DF.head(1)['Primer A'].values[0]
-    R1 = GoodPrimer_DF.head(1)['Primer B'].values[0]
+def calc_best_primerTM(F1,R1, noprimer_list):
     LikestPrimer = [F1, R1]
     PrimerHeteroTM2 = []
     for i in LikestPrimer:
