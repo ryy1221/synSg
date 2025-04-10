@@ -6,13 +6,7 @@ data/*
 **/output/**
 **/.DS_store
 **/*.pyc
-
-chopchop/*
-!chopchop/mart_export.txt
-!chopchop/run_chopchop-genome.sh
-!chopchop/chopchop_setup.md
-
-
+**/.ipynb_checkpoints/
 !/data/22Q2_gene_effect/.gitkeep
 !/data/ExAC/.gitkeep
 !/MANE/.gitkeep
