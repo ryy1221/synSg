@@ -6,7 +6,27 @@ data/*
 **/output/**
 **/.DS_store
 **/*.pyc
+**/.ipynb_checkpoints/
+notebooks/Legacy/*
+notebooks/Analysis/be-hive/processed/*
+notebooks/Analysis/MetaAnalysis/processed/*
+notebooks/Analysis_output/*
+notebooks/figure_output/*
+notebooks/Figures_output/*
+notebooks/processed/*
+ref_fasta/*
+!ref_fasta/*.fasta
+!ref_fasta/*.sh
+!ref_fasta/*.ebwt
+
 
 !/data/22Q2_gene_effect/.gitkeep
 !/data/ExAC/.gitkeep
 !/MANE/.gitkeep
+.ipynb_checkpoints/
+*.csv
+data/temp/
+*.slurm
+*.pbs
+*.bak
+!src/crispresso.pbs
